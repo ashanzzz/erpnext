@@ -42,6 +42,4 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/erpnext:latest
             ghcr.io/${{ github.repository_owner }}/erpnext:v15.47.1
           build-args: |
-            FRAPPE_PATH=https://github.com/frappe/frappe
-            FRAPPE_BRANCH=version-15
             APPS_JSON_BASE64=${{ env.APPS_JSON_BASE64 }}
