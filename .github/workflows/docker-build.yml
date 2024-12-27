@@ -40,6 +40,6 @@ jobs:
           platforms: linux/amd64  # 只构建 amd64 架构
           tags: |
             ghcr.io/${{ github.repository_owner }}/erpnext:latest
-            ghcr.io/${{ github.repository_owner }}/erpnext:version-15
+            ghcr.io/${{ github.repository_owner }}/erpnext:v15.47.1
           build-args: |
             APPS_JSON_BASE64=${{ env.APPS_JSON_BASE64 }}
