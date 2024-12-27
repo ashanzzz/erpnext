@@ -69,7 +69,7 @@ jobs:
           build-args: |
             APPS_JSON_BASE64=${{ env.APPS_JSON_BASE64 }}
 
-      - name: 构建完成报告
+ - name: 构建完成报告
         if: always()
         run: |
           echo "=============== 构建报告 ==============="
@@ -83,8 +83,16 @@ jobs:
           else
             echo "❌ 构建失败"
             echo "请检查以下可能的问题:"
-            echo "1. Dockerfile 中的命令路径是否正确"
-            echo "2. bench 命令是否可用"
-            echo "3. apps.json 格式是否正确"
-            echo "4. 基础镜像是否存在问题"
+            echo "1. bench 命令执行环境是否正确"
+            echo "2. 站点创建是否成功"
+            echo "3. 数据库连接是否正确"
+            echo "4. apps.json 格式是否正确"
+            echo "5. 应用安装过程是否出错"
+            echo ""
+            echo "失败时的环境信息:"
+            echo "当前目录: $(pwd)"
+            echo "Bench 版本:"
+            docker run --rm frappe/erpnext:version-15 bench --version || echo "无法获取bench版本"
+            echo "基础镜像信息:"
+            docker inspect frappe/erpnext:version-15 || echo "无法获取镜像信息"
           fi
