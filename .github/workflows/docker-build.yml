@@ -69,7 +69,7 @@ jobs:
           build-args: |
             APPS_JSON_BASE64=${{ env.APPS_JSON_BASE64 }}
 
- - name: 构建完成报告
+      - name: 构建完成报告
         if: always()
         run: |
           echo "=============== 构建报告 ==============="
