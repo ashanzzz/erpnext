@@ -1,25 +1,12 @@
 FROM frappe/erpnext:version-15
 
-COPY apps.json /tmp/apps.json
+# 复制配置文件
+COPY apps.json /home/frappe/frappe-bench/sites/apps.json
 
-# 切换到root用户进行安装
-USER root
+# 安装和构建应用
+RUN cd /home/frappe/frappe-bench \
+    && bench get-app --skip-assets --branch version-15 https://github.com/frappe/hrms \
+    && bench get-app --skip-assets --branch version-15 https://github.com/frappe/payments \
+    && bench build
 
-# 安装git和必要工具
-RUN mkdir -p /var/lib/apt/lists/partial && \
-    apt-get update && \
-    apt-get install -y git && \
-    cd /home/frappe/frappe-bench/apps && \
-    git clone --depth 1 -b version-15 https://github.com/frappe/hrms && \
-    git clone --depth 1 -b version-15 https://github.com/frappe/payments && \
-    cd /home/frappe/frappe-bench && \
-    chown -R frappe:frappe /home/frappe/frappe-bench/apps/* && \
-    su frappe -c "cd /home/frappe/frappe-bench && bench build" && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# 切换回frappe用户
-USER frappe
-
-# 设置工作目录
 WORKDIR /home/frappe/frappe-bench
