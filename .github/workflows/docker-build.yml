@@ -1,90 +1,15 @@
-version: "3"
-
-services:
-  backend:
-    image: ghcr.io/ashanzzz/erpnext:version-15
-    networks:
-      - frappe_network
-    deploy:
-      restart_policy:
-        condition: on-failure
-    volumes:
-      - sites:/home/frappe/frappe-bench/sites
-      - logs:/home/frappe/frappe-bench/logs
-    environment:
-      DB_HOST: db
-      DB_PORT: "3306"
-      MYSQL_ROOT_PASSWORD: admin
-      MARIADB_ROOT_PASSWORD: admin
-
-  create-site:
-    image: ghcr.io/ashanzzz/erpnext:version-15
-    networks:
-      - frappe_network
-    deploy:
-      restart_policy:
-        condition: none
-    volumes:
-      - sites:/home/frappe/frappe-bench/sites
-      - logs:/home/frappe/frappe-bench/logs
-    entrypoint:
-      - bash
-      - -c
-    command:
-      - >
-        bench new-site frontend
-        --mariadb-user-host-login-scope='%' 
-        --admin-password=admin 
-        --db-root-username=root 
-        --db-root-password=admin 
-        --install-app erpnext 
-        --install-app hrms 
-        --install-app payments;
-
-  db:
-    image: mariadb:10.6
-    networks:
-      - frappe_network
-    environment:
-      MYSQL_ROOT_PASSWORD: admin
-    volumes:
-      - db-data:/var/lib/mysql
-
-  redis-cache:
-    image: redis:6.2-alpine
-    networks:
-      - frappe_network
-    volumes:
-      - redis-cache-data:/data
-
-  redis-queue:
-    image: redis:6.2-alpine
-    networks:
-      - frappe_network
-    volumes:
-      - redis-queue-data:/data
-
-volumes:
-  db-data:
-  redis-cache-data:
-  redis-queue-data:
-  sites:
-  logs:
-
-networks:
-  frappe_network:
-    driver: bridge
-EOF
-
-# 4. 创建GitHub Actions配置文件
-mkdir -p .github/workflows
-cat > .github/workflows/docker-build.yml << 'EOF'
 name: 构建并推送Docker镜像
 
 on:
-  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 * *'  # 每月1号午夜运行
+  workflow_dispatch:      # 允许手动触发
   push:
-    branches: [ main ]
+    branches: [ main ]    # 推送到main分支时触发
+    paths:
+      - 'Dockerfile'
+      - 'apps.json'
+      - '.github/workflows/docker-build.yml'
 
 jobs:
   build:
@@ -96,6 +21,18 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v2
+
+      - name: 检查文件
+        run: |
+          echo "检查必要文件..."
+          if [ ! -f "Dockerfile" ]; then
+            echo "错误：Dockerfile 不存在"
+            exit 1
+          fi
+          if [ ! -f "apps.json" ]; then
+            echo "错误：apps.json 不存在"
+            exit 1
+          fi
 
       - name: 设置 Docker Buildx
         uses: docker/setup-buildx-action@v1
