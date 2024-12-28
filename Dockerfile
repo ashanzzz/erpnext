@@ -14,7 +14,7 @@ RUN mkdir -p /var/lib/apt/lists/partial && \
     git clone --depth 1 -b version-15 https://github.com/frappe/payments && \
     cd /home/frappe/frappe-bench && \
     chown -R frappe:frappe /home/frappe/frappe-bench/apps/* && \
-    sudo -H -u frappe bash -c "bench build" && \
+    su frappe -c "cd /home/frappe/frappe-bench && bench build" && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
