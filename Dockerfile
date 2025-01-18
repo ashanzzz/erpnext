@@ -1,10 +1,7 @@
 FROM frappe/erpnext:version-15
 
-COPY apps.json /tmp/apps.json
-
 USER root
 
-# 安装git和必要工具
 RUN mkdir -p /var/lib/apt/lists/partial && \
     apt-get update && \
     apt-get install -y git && \
@@ -15,10 +12,11 @@ RUN mkdir -p /var/lib/apt/lists/partial && \
     chown -R frappe:frappe /home/frappe/frappe-bench/apps/* && \
     su frappe -c "cd /home/frappe/frappe-bench && bench build" && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* /home/frappe/frappe-bench/apps/*/.git
 
-# 切换回frappe用户
+# 添加健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/api/method/ping || exit 1
+
 USER frappe
-
-# 设置工作目录
 WORKDIR /home/frappe/frappe-bench
