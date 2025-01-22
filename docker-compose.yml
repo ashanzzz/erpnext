@@ -1,16 +1,15 @@
+
 version: "3"
 
 services:
   backend:
     image: ghcr.io/ashanzzz/erpnext:version-15
+
     networks:
       - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
-      resources:
-        limits:
-          memory: 4g
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
@@ -56,9 +55,6 @@ services:
     deploy:
       restart_policy:
         condition: none
-      resources:
-        limits:
-          memory: 2g
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
@@ -96,14 +92,11 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
-      resources:
-        limits:
-          memory: 2g
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --skip-character-set-client-handshake
-      - --skip-innodb-read-only-compressed
+      - --skip-innodb-read-only-compressed # Temporary fix for MariaDB 10.6
     environment:
       MYSQL_ROOT_PASSWORD: admin
       MARIADB_ROOT_PASSWORD: admin
@@ -119,9 +112,6 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
-      resources:
-        limits:
-          memory: 1g
     command:
       - nginx-entrypoint.sh
     environment:
@@ -146,9 +136,6 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
-      resources:
-        limits:
-          memory: 2g
     command:
       - bench
       - worker
@@ -165,9 +152,6 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
-      resources:
-        limits:
-          memory: 1g
     command:
       - bench
       - worker
@@ -204,9 +188,6 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
-      resources:
-        limits:
-          memory: 1g
     command:
       - bench
       - schedule
@@ -221,9 +202,6 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
-      resources:
-        limits:
-          memory: 1g
     command:
       - node
       - /home/frappe/frappe-bench/apps/frappe/socketio.js
