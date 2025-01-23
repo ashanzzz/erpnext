@@ -1,52 +1,47 @@
 name: 构建并推送Docker镜像
 
 on:
-  # 1) 每月1号凌晨执行一次，cron表达式：每天0点0分1号
   schedule:
     - cron: '0 0 1 * *'
-  
-  # 2) 手动触发（GitHub Actions 页面 -> Run workflow）
   workflow_dispatch:
-
-  # 3) 当推送到 main 分支，并且修改了以下文件时触发
   push:
     branches: [ main ]
     paths:
       - 'apps.json'
       - '.github/workflows/docker-build.yml'
       - 'Dockerfile'
-      # 如不需要监听Dockerfile的改动，可将其删除
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
-    # 赋予当前Job推送到GitHub Packages (ghcr.io)的权限
+
     permissions:
       contents: read
       packages: write
 
     steps:
-      # ------------------- Step 1) 检出代码 -------------------
+      # Step 1: 检出代码
       - name: 检出代码
         uses: actions/checkout@v3
 
-      # ------------------- Step 2) 生成 APPS_JSON_BASE64 -------------------
+      # Step 2: 生成 APPS_JSON_BASE64
       - name: 生成 APPS_JSON_BASE64
         run: |
-          # 在 Linux 环境下使用 -w 0 去除换行符
-          # 如果是 macOS 或其他系统可使用 base64 apps.json | tr -d '\n'
           echo "APPS_JSON_BASE64=$(base64 -w 0 apps.json)" >> $GITHUB_ENV
+          echo "APPS_JSON_BASE64 内容：" 
+          echo "${{ env.APPS_JSON_BASE64 }}" | base64 -d
 
-      # ------------------- Step 3) 克隆 frappe_docker -------------------
+      # Step 3: 克隆 frappe_docker
       - name: 克隆 frappe_docker
-        run: git clone https://github.com/frappe/frappe_docker
+        run: |
+          git clone https://github.com/frappe/frappe_docker
+          echo "克隆 frappe_docker 完成"
 
-      # ------------------- Step 4) 设置 Buildx (支持多架构或高级缓存) -------------------
+      # Step 4: 设置 Buildx
       - name: 设置 Buildx
         uses: docker/setup-buildx-action@v2
 
-      # ------------------- Step 5) 登录到 GitHub Container Registry -------------------
+      # Step 5: 登录到 GitHub Container Registry
       - name: 登录 GitHub Container Registry
         uses: docker/login-action@v2
         with:
@@ -54,24 +49,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ------------------- Step 6) 构建并推送镜像 -------------------
+      # Step 6: 构建和推送镜像
       - name: 构建和推送镜像
         uses: docker/build-push-action@v3
         with:
-          # 1) 构建上下文：克隆下来的 frappe_docker 目录
           context: frappe_docker
-          # 2) 使用 frappe_docker/images/layered/Containerfile（快速构建）
           file: frappe_docker/images/layered/Containerfile
-          # 3) 构建完成后立即推送
           push: true
-          # 4) 构建平台（此处只用 amd64，若需多架构可改: linux/amd64,linux/arm64 等）
           platforms: linux/amd64
-          # 5) 传递必要的构建参数
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
             FRAPPE_BRANCH=version-15
             APPS_JSON_BASE64=${{ env.APPS_JSON_BASE64 }}
-          # 6) 生成并推送到 ghcr.io 的镜像标签
           tags: |
             ghcr.io/${{ github.repository_owner }}/erpnext:latest
             ghcr.io/${{ github.repository_owner }}/erpnext:version-15
+          # 启用详细日志
+          labels: |
+            com.docker.build.trace=yes
+        env:
+          DOCKER_BUILDKIT: 1
+          BUILDKIT_PROGRESS: plain
