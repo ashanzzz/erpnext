@@ -1,40 +1,51 @@
-name: Build ERPNext Custom Image
+name: Build and Push ERPNext Custom Image
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+      # 检出当前仓库代码，确保 apps.json 文件存在
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # 设置 Docker Buildx 环境
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v2
 
+      # 克隆 frappe_docker 仓库，确保能找到 Containerfile 文件等
       - name: Clone frappe_docker repository
         run: |
           git clone https://github.com/frappe/frappe_docker.git
-          cd frappe_docker
 
+      # 将仓库根目录下的 apps.json 文件转换为 Base64 字符串
       - name: Encode apps.json to Base64
         id: encode
         run: |
-          # 使用 base64 命令将 apps.json 编码成一行字符串
+          # 注意：Linux 下使用 -w 0 参数将输出转换成单行
           export APPS_JSON_BASE64=$(base64 -w 0 apps.json)
           echo "APPS_JSON_BASE64=$APPS_JSON_BASE64" >> $GITHUB_ENV
-          echo "Encoded value: $APPS_JSON_BASE64"
+          echo "Encoded APPS_JSON_BASE64: $APPS_JSON_BASE64"
 
+      # 使用构建参数构建镜像
       - name: Build Docker image
         run: |
           docker build \
             --build-arg=FRAPPE_PATH=https://github.com/frappe/frappe \
             --build-arg=FRAPPE_BRANCH=version-15 \
             --build-arg=APPS_JSON_BASE64=${{ env.APPS_JSON_BASE64 }} \
-            --tag=my_registry/erpnext-hrms-payments:1.0.0 \
+            --tag=ghcr.io/${{ github.repository_owner }}/erpnext-hrms-payments:15 \
             --file=frappe_docker/images/layered/Containerfile .
+
+      # 登录 GitHub Container Registry
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # 推送镜像到 GitHub Container Registry
+      - name: Push Docker image
+        run: docker push ghcr.io/${{ github.repository_owner }}/erpnext-hrms-payments:15
