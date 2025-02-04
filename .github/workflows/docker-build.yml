@@ -17,6 +17,11 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v2
 
+      - name: Clone frappe_docker repository
+        run: |
+          git clone https://github.com/frappe/frappe_docker.git
+          cd frappe_docker
+
       - name: Encode apps.json to Base64
         id: encode
         run: |
@@ -32,4 +37,4 @@ jobs:
             --build-arg=FRAPPE_BRANCH=version-15 \
             --build-arg=APPS_JSON_BASE64=${{ env.APPS_JSON_BASE64 }} \
             --tag=my_registry/erpnext-hrms-payments:1.0.0 \
-            --file=images/layered/Containerfile .
+            --file=frappe_docker/images/layered/Containerfile .
