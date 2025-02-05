@@ -4,7 +4,7 @@ on:
   workflow_dispatch:  # 手动触发
   push:
     branches:
-      - main
+      - 'main'
     paths:
       - 'apps.json'
       - '.github/workflows/docker-build.yml'
@@ -20,7 +20,7 @@ jobs:
     steps:
       # Step 1: 登录 GitHub Container Registry
       - name: 登录 GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v1
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -29,10 +29,18 @@ jobs:
       # Step 2: 拉取镜像从 GHCR
       - name: 拉取镜像从 GitHub Container Registry
         run: |
-          docker pull ghcr.io/${{ github.repository_owner }}/erpnext:${{ github.sha }}
+          # 假设版本号存储在 Git 标签或者通过 apps.json 获取
+          VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
+          if [ -z "$VERSION" ]; then
+            VERSION=$(jq -r '.[0].branch' apps.json | sed 's/version-//')
+          fi
+
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          
+          docker pull ghcr.io/${{ github.repository_owner }}/erpnext:${{ env.VERSION }}
           docker pull ghcr.io/${{ github.repository_owner }}/erpnext:latest
 
-      # Step 3: 登录 Docker Hub
+      # Step 3: 登录到 Docker Hub
       - name: 登录到 Docker Hub
         uses: docker/login-action@v2
         with:
@@ -43,11 +51,11 @@ jobs:
       # Step 4: 为 Docker Hub 打标签
       - name: 为 Docker Hub 打标签
         run: |
-          docker tag ghcr.io/${{ github.repository_owner }}/erpnext:${{ github.sha }} docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:${{ github.sha }}
+          docker tag ghcr.io/${{ github.repository_owner }}/erpnext:${{ env.VERSION }} docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:${{ env.VERSION }}
           docker tag ghcr.io/${{ github.repository_owner }}/erpnext:latest docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:latest
 
       # Step 5: 推送镜像到 Docker Hub
       - name: 推送镜像到 Docker Hub
         run: |
-          docker push docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:${{ github.sha }}
+          docker push docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:${{ env.VERSION }}
           docker push docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:latest
