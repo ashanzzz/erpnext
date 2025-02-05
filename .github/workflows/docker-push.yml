@@ -18,44 +18,64 @@ jobs:
       packages: read
 
     steps:
-      # Step 1: 登录 GitHub Container Registry
-      - name: 登录 GitHub Container Registry
+      # Step 1: 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: 初始化 Git 仓库（防止 "not a git repository" 错误）
+      - name: Initialize Git repository
+        run: |
+          git init
+          git fetch --all
+          
+      # Step 3: 获取版本号
+      - name: 获取版本号
+        run: |
+          # 尝试获取 Git 标签作为版本号
+          VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
+
+          # 如果没有 Git 标签，则从 apps.json 获取版本号
+          if [ -z "$VERSION" ]; then
+            VERSION=$(jq -r '.[0].branch' apps.json | sed 's/version-//')
+          fi
+
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "获取到的版本号是：$VERSION"
+          
+      # Step 4: 登录 GitHub Container Registry
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 2: 拉取镜像从 GHCR
+      # Step 5: 拉取镜像从 GitHub Container Registry
       - name: 拉取镜像从 GitHub Container Registry
         run: |
-          # 假设版本号存储在 Git 标签或者通过 apps.json 获取
-          VERSION=$(git describe --tags --abbrev=0 | sed 's/^v//')
           if [ -z "$VERSION" ]; then
-            VERSION=$(jq -r '.[0].branch' apps.json | sed 's/version-//')
+            echo "ERROR: 版本号为空，无法拉取镜像。"
+            exit 1
           fi
-
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          
-          docker pull ghcr.io/${{ github.repository_owner }}/erpnext:${{ env.VERSION }}
+          docker pull ghcr.io/${{ github.repository_owner }}/erpnext:$VERSION
           docker pull ghcr.io/${{ github.repository_owner }}/erpnext:latest
 
-      # Step 3: 登录到 Docker Hub
-      - name: 登录到 Docker Hub
+      # Step 6: 登录到 Docker Hub
+      - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           registry: docker.io
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 4: 为 Docker Hub 打标签
-      - name: 为 Docker Hub 打标签
+      # Step 7: 为 Docker Hub 打标签
+      - name: Tag for Docker Hub
         run: |
-          docker tag ghcr.io/${{ github.repository_owner }}/erpnext:${{ env.VERSION }} docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:${{ env.VERSION }}
+          docker tag ghcr.io/${{ github.repository_owner }}/erpnext:$VERSION docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:$VERSION
           docker tag ghcr.io/${{ github.repository_owner }}/erpnext:latest docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:latest
 
-      # Step 5: 推送镜像到 Docker Hub
-      - name: 推送镜像到 Docker Hub
+      # Step 8: 推送镜像到 Docker Hub
+      - name: Push to Docker Hub
         run: |
-          docker push docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:${{ env.VERSION }}
+          docker push docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:$VERSION
           docker push docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:latest
