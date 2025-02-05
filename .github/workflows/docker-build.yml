@@ -1,17 +1,11 @@
 name: 构建并推送Docker镜像
 
 on:
-  # 定时触发：每月1号凌晨执行
   schedule:
-    - cron: '0 0 1 * *'
-
-  # 手动触发：GitHub Actions 页面 -> Run workflow
-  workflow_dispatch:
-
-  # 推送触发：当 main 分支的特定文件发生更改时触发
+    - cron: '0 0 1 * *'  # 每月1号运行
+  workflow_dispatch:      
   push:
-    branches:
-      - main
+    branches: [ main ]    
     paths:
       - 'apps.json'
       - '.github/workflows/docker-build.yml'
@@ -20,52 +14,40 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    permissions:
+    permissions: 
       contents: read
       packages: write
-
+    
     steps:
       # Step 1: 检出代码
       - name: 检出代码
         uses: actions/checkout@v3
-
-      # Step 2: 获取版本号
-      - name: 获取最新版本号
-        run: |
-          # 假设版本号存储在 apps.json 或通过 Git 的 tag 获取
-          if [ -f "apps.json" ]; then
-            export VERSION=$(jq -r '.[0].branch' apps.json | sed 's/version-//')
-          else
-            export VERSION=$(git describe --tags --always)
-          fi
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "最新版本号为: $VERSION"
-
-      # Step 3: 生成 APPS_JSON_BASE64
+      
+      # Step 2: 生成 APPS_JSON_BASE64
       - name: 生成 APPS_JSON_BASE64
         run: |
-          export APPS_JSON_BASE64=$(base64 -w 0 apps.json)
-          echo "APPS_JSON_BASE64=$APPS_JSON_BASE64" >> $GITHUB_ENV
-
-      # Step 4: 克隆 frappe_docker
+          echo "APPS_JSON_BASE64=$(base64 -w 0 apps.json)" >> $GITHUB_ENV
+          
+      # Step 3: 克隆 frappe_docker
       - name: 克隆 frappe_docker
-        run: git clone https://github.com/frappe/frappe_docker
-
-      # Step 5: 设置 Buildx
-      - name: 设置 Buildx
+        run: |
+          git clone https://github.com/frappe/frappe_docker
+          cd frappe_docker
+          
+      # Step 4: 设置 Docker Buildx
+      - name: 设置 Docker Buildx
         uses: docker/setup-buildx-action@v2
-
-      # Step 6: 登录到 GitHub Container Registry
+        
+      # Step 5: 登录 GitHub Container Registry
       - name: 登录 GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Step 7: 构建和推送镜像到 GitHub Container Registry
-      - name: 构建并推送到 GitHub Container Registry
+          
+      # Step 6: 构建并推送到 GitHub Container Registry
+      - name: 构建并推送到 GHCR
         uses: docker/build-push-action@v3
         with:
           context: frappe_docker
@@ -74,16 +56,13 @@ jobs:
           platforms: linux/amd64
           build-args: |
             FRAPPE_PATH=https://github.com/frappe/frappe
-            FRAPPE_BRANCH=version-${{ env.VERSION }}
+            FRAPPE_BRANCH=version-15
             APPS_JSON_BASE64=${{ env.APPS_JSON_BASE64 }}
           tags: |
             ghcr.io/${{ github.repository_owner }}/erpnext:latest
-            ghcr.io/${{ github.repository_owner }}/erpnext:version-${{ env.VERSION }}
-        env:
-          DOCKER_BUILDKIT: 1
-          BUILDKIT_PROGRESS: plain
+            ghcr.io/${{ github.repository_owner }}/erpnext:version-15
 
-      # Step 8: 登录到 Docker Hub
+      # Step 7: 登录到 Docker Hub
       - name: 登录到 Docker Hub
         uses: docker/login-action@v2
         with:
@@ -91,9 +70,13 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 9: 推送镜像到 Docker Hub
+      # Step 8: 推送镜像到 Docker Hub
       - name: 推送镜像到 Docker Hub
         run: |
-          docker tag ghcr.io/${{ github.repository_owner }}/erpnext:version-${{ env.VERSION }} \
-          ${{ secrets.DOCKER_USERNAME }}/erpnext-hrms-payments:version-${{ env.VERSION }}
-          docker push ${{ secrets.DOCKER_USERNAME }}/erpnext-hrms-payments:version-${{ env.VERSION }}
+          # 先为 Docker Hub 打上合适的 tag
+          docker tag ghcr.io/${{ github.repository_owner }}/erpnext:version-15 docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:version-15
+          docker tag ghcr.io/${{ github.repository_owner }}/erpnext:latest docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:latest
+          
+          # 推送到 Docker Hub
+          docker push docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:version-15
+          docker push docker.io/${{ secrets.DOCKER_USERNAME }}/erpnext:latest
